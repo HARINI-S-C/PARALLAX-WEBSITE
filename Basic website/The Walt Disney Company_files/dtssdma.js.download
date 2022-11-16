@@ -1,0 +1,1 @@
+var dtssdma=dtssdma||{};dtssdma=function(){function t(t){if(!t){console.error("playerObj was null");return}e.jwpVideos.push(t)}var e={};e.jwpVideos=[];return{addJwpVideo:function(e){t(e)},pageData:e}}()

@@ -1,0 +1,125 @@
+var dtssdma = dtssdma || {};
+var utag_data = utag_data || { };
+/*
+* Description: Handles calling out to utag analytics to track video play. 
+* Written By: DTSS DDM, John G
+* Version: 1.9.0
+* Last Updated: 2013-04-01
+* Relies on: jquery, dtssdma.js
+* Notes: Should be placed near the end of </body> tag for performance.
+*/
+dtssdma.dmatealium = function() {
+     
+    var _alreadyTracked = [];
+    var _ddmCustomMeta = [];
+ 
+    //Initiates Tracking at upon play  
+     var _handlePlay = function (videoName) {
+
+        if (jQuery.inArray(videoName, _alreadyTracked) > -1)
+        {
+        	console.log('Already tracking: ' + videoName);
+            return;
+        }
+        _alreadyTracked.push(videoName);
+        if (utag)
+        {
+            utag.link({ video_name: videoName, link_name: videoName })
+            console.log("Tracked: " + videoName);
+        }
+        else
+        {
+            console.error("utag object not defined");
+        }
+    }
+     
+    //Removes filename to allow for tracking a fresh play
+	var _handleComplete = function (videoName) {
+         
+        var indexForVideo = jQuery.inArray(videoName, _alreadyTracked);
+        if (indexForVideo > -1) //if it was found
+        {
+            _alreadyTracked.splice(indexForVideo, 1); //remove one item at index
+        }
+    }
+	
+
+	//Happens on dom ready, when needed    
+    jQuery(function() {
+    	//Grab all the DDM custom meta tags
+		ddmCustomMetaTags = jQuery("meta.ddm_tealium_custom_meta");
+		if (ddmCustomMetaTags.length < 1)
+		{
+			return;
+		}
+
+		ddmJsonBuilder = '{';
+
+		for (i = 0; i < ddmCustomMetaTags.length; i++) 
+		{ 
+			theTagName = ddmCustomMetaTags[i].name;
+			theTagValue = ddmCustomMetaTags[i].content;
+		
+			//now we do a swap on defined values
+			indiciesOfPercents = [];
+			for(var j=0; j<theTagValue.length;j++) 
+			{
+ 		   		if (theTagValue[j] === "%") 
+ 		   		{
+ 		   			indiciesOfPercents.push(j);
+ 		   		}
+ 		   	}
+			if (indiciesOfPercents.length > 0 && indiciesOfPercents.length % 2 == 0)  //only do this if there is a pair...
+			{
+//				console.log(theTagValue);
+				for(var j=indiciesOfPercents.length - 1; j > -1; j-=2)
+				{
+					stringStopIndex = indiciesOfPercents[j];			
+					stringStartIndex = indiciesOfPercents[j-1] + 1;  //start comes before stop in the list, and account for %
+//					console.log("From " + stringStartIndex + " To " + stringStopIndex);
+
+					//get the value between the %'s
+					keyString = theTagValue.substring(stringStartIndex, stringStopIndex);
+//					console.log(keyString);
+
+					//Get the value out of our array
+					newValueString = _ddmCustomMeta[keyString];
+					if(newValueString == null)  //empty string is okay
+					{
+						continue;  //skip it if not found
+					}
+//					console.log(newValueString);	
+					
+					//now, that we have the string, break the string up and do the replace...
+					preString = theTagValue.substring(0, stringStartIndex);
+					postString = theTagValue.substring(stringStopIndex, theTagValue.length);
+					
+					theTagValue = preString.replace(/%+$/,'');  //trim trailing %'s
+					theTagValue += newValueString;
+					theTagValue += postString.replace(/^%+/,'');
+//					console.log(theTagValue);
+				}
+			}
+
+//			console.log(theTagValue);
+			//now save it off in our object
+			_ddmCustomMeta[theTagName] = theTagValue;
+			
+			//and build up our JSON string
+			ddmJsonBuilder += ('"' + theTagName + '": "' + theTagValue + '",');		
+		}	
+		//use a regex to remove the final comma
+		utag_data = jQuery.parseJSON(ddmJsonBuilder.replace(/,+$/,'') + '}');		 
+	});
+    
+      
+    // Publicly visible members.
+    return {
+		handlePlayVideo : function(video) {
+			_handlePlay(video);
+		},
+		handleVideoComplete : function(video) {
+			_handleComplete(video);
+		}
+    }
+}();
